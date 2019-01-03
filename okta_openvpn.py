@@ -40,18 +40,18 @@ user_agent = ("OktaOpenVPN/{version} "
                   python_version=platform.python_version())
 log = logging.getLogger('okta_openvpn')
 log.setLevel(logging.DEBUG)
-#syslog = logging.handlers.SysLogHandler()
-#syslog_fmt = "%(module)s-%(processName)s[%(process)d]: %(name)s: %(message)s"
-#syslog.setFormatter(logging.Formatter(syslog_fmt))
-#log.addHandler(syslog)
+log_format = "%(module)s-%(processName)s[%(process)d]: %(name)s: %(message)s"
+# syslog = logging.handlers.SysLogHandler()
+# syslog.setFormatter(logging.Formatter(log_format))
+# log.addHandler(syslog)
 # # Uncomment to enable logging to STDERR
 errlog = logging.StreamHandler()
-errlog.setFormatter(logging.Formatter(syslog_fmt))
+errlog.setFormatter(logging.Formatter(log_format))
 log.addHandler(errlog)
 # # Uncomment to enable logging to a file
-#filelog = logging.FileHandler('/tmp/okta_openvpn.log')
-#filelog.setFormatter(logging.Formatter(syslog_fmt))
-#log.addHandler(filelog)
+# filelog = logging.FileHandler('/tmp/okta_openvpn.log')
+# filelog.setFormatter(logging.Formatter(log_format))
+# log.addHandler(filelog)
 
 
 class PinError(Exception):
