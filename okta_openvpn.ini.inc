@@ -2,11 +2,11 @@
 ## The URL for your Okta instance
 ## (Example below)
 # Url: https://example.okta.com
-Url: 
+Url:
 ## The API Token for your Okta instace
 ## (Example below)
 # Token: 01Abcd2efGHIjKl3m4NoPQrstu5vwxYZ_AbcdefGHi
-Token: 
+Token:
 ## An OPTIONAL suffix to be appended to the end of user names
 ## before the attempting authentication against Okta.
 ##   For example: If this was set to 'example.com', a user with a
@@ -22,3 +22,11 @@ Token:
 ## Values below are what are set by default:
 # MFAPushMaxRetries: 20
 # MFAPushDelaySeconds: 3
+## Optonal Device Token Generator
+## each client will be treated as a new device on each connection attempt.
+## A deviceToken for a user’s device needs to be generated
+## for per-device or per-session Sign-On Policy factor challenges.
+## If the deviceToken is absent or does not match the previous deviceToken,
+## the user will be challenged every-time instead of per-device or per-session.
+## Supported Generators are 'UsernameIpGenerator'. Leave this commented out to disable.
+#DeviceTokenGenerator: UsernameIpGenerator

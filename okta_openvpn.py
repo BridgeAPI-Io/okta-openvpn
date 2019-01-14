@@ -40,17 +40,17 @@ user_agent = ("OktaOpenVPN/{version} "
                   python_version=platform.python_version())
 log = logging.getLogger('okta_openvpn')
 log.setLevel(logging.DEBUG)
-syslog = logging.handlers.SysLogHandler()
-syslog_fmt = "%(module)s-%(processName)s[%(process)d]: %(name)s: %(message)s"
-syslog.setFormatter(logging.Formatter(syslog_fmt))
-log.addHandler(syslog)
+log_format = "%(module)s-%(processName)s[%(process)d]: %(name)s: %(message)s"
+# syslog = logging.handlers.SysLogHandler()
+# syslog.setFormatter(logging.Formatter(log_format))
+# log.addHandler(syslog)
 # # Uncomment to enable logging to STDERR
-# errlog = logging.StreamHandler()
-# errlog.setFormatter(logging.Formatter(syslog_fmt))
-# log.addHandler(errlog)
+errlog = logging.StreamHandler()
+errlog.setFormatter(logging.Formatter(log_format))
+log.addHandler(errlog)
 # # Uncomment to enable logging to a file
 # filelog = logging.FileHandler('/tmp/okta_openvpn.log')
-# filelog.setFormatter(logging.Formatter(syslog_fmt))
+# filelog.setFormatter(logging.Formatter(log_format))
 # log.addHandler(filelog)
 
 
@@ -100,7 +100,7 @@ class OktaAPIAuth(object):
                  username, password, client_ipaddr,
                  mfa_push_delay_secs=None,
                  mfa_push_max_retries=None,
-                 assert_pinset=None):
+                 assert_pinset=None, device_token_generator=None):
         passcode_len = 6
         self.okta_url = None
         self.okta_token = okta_token
@@ -129,6 +129,7 @@ class OktaAPIAuth(object):
             cert_reqs='CERT_REQUIRED',
             ca_certs=certifi.where(),
         )
+        self.device_token_generator = device_token_generator
 
     def okta_req(self, path, data):
         ssws = "SSWS {token}".format(token=self.okta_token)
@@ -151,14 +152,22 @@ class OktaAPIAuth(object):
         path = "/authn"
         data = {
             'username': self.username,
-            'password': self.password,
+            'password': self.password
         }
+
+        if self.device_token_generator == 'UsernameIpGenerator':
+            data['context'] = {
+                'deviceToken': '%s:%s' % (self.username[0:16], self.client_ipaddr[0:16])
+            }
+
         return self.okta_req(path, data)
 
     def doauth(self, fid, state_token):
-        path = "/authn/factors/{fid}/verify".format(fid=fid)
+        rememberDevice = (self.device_token_generator != None)
+        path = "/authn/factors/{fid}/verify?rememberDevice={rememberDevice}".format(
+            fid=fid, rememberDevice=rememberDevice
+        )
         data = {
-            'fid': fid,
             'stateToken': state_token,
             'passCode': self.passcode,
         }
@@ -279,6 +288,7 @@ class OktaOpenVPNValidator(object):
             'UsernameSuffix': self.username_suffix,
             'MFAPushMaxRetries': self.mfa_push_max_retries,
             'MFAPushDelaySeconds': self.mfa_push_delay_secs,
+            'DeviceTokenGenerator': None
             }
         if self.config_file:
             cfg_path = []
@@ -296,6 +306,8 @@ class OktaOpenVPNValidator(object):
                                                         'MFAPushMaxRetries'),
                         'mfa_push_delay_secs': cfg.get('OktaAPI',
                                                        'MFAPushDelaySeconds'),
+                        'device_token_generator': cfg.get('OktaAPI',
+                                                       'DeviceTokenGenerator')
                         }
                     always_trust_username = cfg.get(
                         'OktaAPI',
@@ -347,6 +359,7 @@ class OktaOpenVPNValidator(object):
             'username': username,
             'password': password,
             'client_ipaddr': client_ipaddr,
+            'device_token_generator': self.site_config['device_token_generator']
         }
         for item in ['mfa_push_max_retries', 'mfa_push_delay_secs']:
             if item in self.site_config:
