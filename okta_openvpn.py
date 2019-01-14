@@ -157,7 +157,7 @@ class OktaAPIAuth(object):
 
         if self.device_token_generator == 'UsernameIpGenerator':
             data['context'] = {
-                'deviceToken': '%s:%s' % (self.username[0:16], self.client_ipaddr)
+                'deviceToken': '%s:%s' % (self.username[0:16], self.client_ipaddr[0:16])
             }
 
         return self.okta_req(path, data)
