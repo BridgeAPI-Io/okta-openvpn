@@ -4,7 +4,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-# Contributors: gdestuynder@mozilla.com
+# Contributors: gdestuynder@mozilla.com, yavor@constructor.io
 
 import ConfigParser
 from ConfigParser import MissingSectionHeaderError
@@ -28,7 +28,7 @@ import urllib3
 
 from okta_pinset import okta_pinset
 
-version = "0.10.2-beta"
+version = "0.10.3"
 # OktaOpenVPN/0.10.0 (Darwin 12.4.0) CPython/2.7.5
 user_agent = ("OktaOpenVPN/{version} "
               "({system} {system_version}) "
@@ -100,7 +100,8 @@ class OktaAPIAuth(object):
                  username, password, client_ipaddr,
                  mfa_push_delay_secs=None,
                  mfa_push_max_retries=None,
-                 assert_pinset=None, device_token_generator=None):
+                 assert_pinset=None, device_token_generator=None,
+                 required_user_group=None):
         passcode_len = 6
         self.okta_url = None
         self.okta_token = okta_token
@@ -130,8 +131,9 @@ class OktaAPIAuth(object):
             ca_certs=certifi.where(),
         )
         self.device_token_generator = device_token_generator
+        self.required_user_group = required_user_group
 
-    def okta_req(self, path, data):
+    def okta_req(self, path, method, data={}):
         ssws = "SSWS {token}".format(token=self.okta_token)
         headers = {
             'user-agent': user_agent,
@@ -141,12 +143,16 @@ class OktaAPIAuth(object):
             }
         url = "{base}/api/v1{path}".format(base=self.okta_url, path=path)
         req = self.pool.urlopen(
-            'POST',
+            method,
             url,
             headers=headers,
             body=json.dumps(data)
         )
         return json.loads(req.data)
+
+    def get_user_groups(self, user_id):
+        path = '/users/{user_id}/groups'.format(user_id=user_id)
+        return self.okta_req(path, method='GET')
 
     def preauth(self):
         path = "/authn"
@@ -160,10 +166,10 @@ class OktaAPIAuth(object):
                 'deviceToken': '%s:%s' % (self.username[0:16], self.client_ipaddr[0:16])
             }
 
-        return self.okta_req(path, data)
+        return self.okta_req(path, method='POST', data=data)
 
     def doauth(self, fid, state_token):
-        rememberDevice = (self.device_token_generator != None)
+        rememberDevice = True if self.device_token_generator else False
         path = "/authn/factors/{fid}/verify?rememberDevice={rememberDevice}".format(
             fid=fid, rememberDevice=rememberDevice
         )
@@ -171,7 +177,18 @@ class OktaAPIAuth(object):
             'stateToken': state_token,
             'passCode': self.passcode,
         }
-        return self.okta_req(path, data)
+        return self.okta_req(path, method='POST', data=data)
+
+    def is_in_required_group(self, rv):
+        groups = self.get_user_groups(rv['_embedded']['user']['id'])
+        groups_names = [g['profile']['name'] for g in groups]
+        if self.required_user_group is None or self.required_user_group in groups_names:
+            return True
+        log.info(
+            'User %s needs to be a member of group %s to access VPN',
+            self.username, self.required_user_group
+        )
+        return False
 
     def auth(self):
         username = self.username
@@ -212,7 +229,7 @@ class OktaAPIAuth(object):
         # Check authentication status from Okta
         if status == "SUCCESS":
             log.info('User %s authenticated without MFA', self.username)
-            return True
+            return self.is_in_required_group(rv)
         elif status == "MFA_ENROLL" or status == "MFA_ENROLL_ACTIVATE":
             log.info('User %s needs to enroll first', self.username)
             return False
@@ -246,7 +263,7 @@ class OktaAPIAuth(object):
                 if 'status' in res and res['status'] == 'SUCCESS':
                     log.info("User %s is now authenticated "
                              "with MFA via Okta API", self.username)
-                    return True
+                    return self.is_in_required_group(rv)
             if 'errorCauses' in res:
                 msg = res['errorCauses'][0]['errorSummary']
                 log.debug('User %s MFA token authentication failed: %s',
@@ -288,7 +305,8 @@ class OktaOpenVPNValidator(object):
             'UsernameSuffix': self.username_suffix,
             'MFAPushMaxRetries': self.mfa_push_max_retries,
             'MFAPushDelaySeconds': self.mfa_push_delay_secs,
-            'DeviceTokenGenerator': None
+            'DeviceTokenGenerator': None,
+            'RequiredUserGroup': None
             }
         if self.config_file:
             cfg_path = []
@@ -307,7 +325,9 @@ class OktaOpenVPNValidator(object):
                         'mfa_push_delay_secs': cfg.get('OktaAPI',
                                                        'MFAPushDelaySeconds'),
                         'device_token_generator': cfg.get('OktaAPI',
-                                                       'DeviceTokenGenerator')
+                                                          'DeviceTokenGenerator'),
+                        'required_user_group': cfg.get('OktaAPI',
+                                                       'RequiredUserGroup')
                         }
                     always_trust_username = cfg.get(
                         'OktaAPI',
@@ -359,7 +379,8 @@ class OktaOpenVPNValidator(object):
             'username': username,
             'password': password,
             'client_ipaddr': client_ipaddr,
-            'device_token_generator': self.site_config['device_token_generator']
+            'device_token_generator': self.site_config['device_token_generator'],
+            'required_user_group': self.site_config['required_user_group']
         }
         for item in ['mfa_push_max_retries', 'mfa_push_delay_secs']:
             if item in self.site_config:
@@ -433,6 +454,7 @@ def return_error_code_for(validator):
         sys.exit(0)
     else:
         sys.exit(1)
+
 
 # This is tested by test_command.sh via tests/test_command.py
 if __name__ == "__main__":  # pragma: no cover
