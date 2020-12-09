@@ -101,7 +101,7 @@ class OktaAPIAuth(object):
                  mfa_push_delay_secs=None,
                  mfa_push_max_retries=None,
                  assert_pinset=None, device_token_generator=None,
-                 required_user_group=None):
+                 allowed_groups=None):
         passcode_len = 6
         self.okta_url = None
         self.okta_token = okta_token
@@ -112,6 +112,8 @@ class OktaAPIAuth(object):
         self.okta_urlparse = urllib.parse.urlparse(okta_url)
         self.mfa_push_delay_secs = mfa_push_delay_secs
         self.mfa_push_max_retries = mfa_push_max_retries
+        # For multiple groups
+        self.allowed_groups = set(allowed_groups) if allowed_groups else None # Deal with empty list
         if assert_pinset is None:
             assert_pinset = okta_pinset
         url_new = (self.okta_urlparse.scheme,
@@ -132,7 +134,6 @@ class OktaAPIAuth(object):
             ca_certs=certifi.where(),
         )
         self.device_token_generator = device_token_generator
-        self.required_user_group = required_user_group
 
     def okta_req(self, path, method, data={}):
         ssws = "SSWS {token}".format(token=self.okta_token)
@@ -151,10 +152,6 @@ class OktaAPIAuth(object):
             body=json.dumps(data)
         )
         return json.loads(req.data)
-
-    def get_user_groups(self, user_id):
-        path = '/users/{user_id}/groups'.format(user_id=user_id)
-        return self.okta_req(path, method='GET')
 
     def preauth(self):
         path = "/authn"
@@ -181,16 +178,12 @@ class OktaAPIAuth(object):
         }
         return self.okta_req(path, method='POST', data=data)
 
-    def is_in_required_group(self, rv):
-        groups = self.get_user_groups(rv['_embedded']['user']['id'])
-        groups_names = [g['profile']['name'] for g in groups]
-        if self.required_user_group is None or self.required_user_group in groups_names:
-            return True
-        log.info(
-            'User %s needs to be a member of group %s to access VPN',
-            self.username, self.required_user_group
-        )
-        return False
+    def get_groups(self, user_id):
+        # This is for new multiple groups
+        path =  "/users/{user_id}/groups".format(user_id=user_id)
+        groups = self.okta_req(path, data={}, method='GET')
+        log.info("Getting user groups for %s", user_id)
+        return [group['profile']['name'] for group in groups]
 
     def auth(self):
         username = self.username
@@ -231,7 +224,7 @@ class OktaAPIAuth(object):
         # Check authentication status from Okta
         if status == "SUCCESS":
             log.info('User %s authenticated without MFA', self.username)
-            return self.is_in_required_group(rv)
+            return True
         elif status == "MFA_ENROLL" or status == "MFA_ENROLL_ACTIVATE":
             log.info('User %s needs to enroll first', self.username)
             return False
@@ -263,9 +256,15 @@ class OktaAPIAuth(object):
                     log.error('Unexpected error with the Okta API: %s', e)
                     return False
                 if 'status' in res and res['status'] == 'SUCCESS':
+                    if self.allowed_groups is not None:
+                        user_id = res['_embedded']['user']['id']
+                        groups = self.get_groups(user_id)
+                        if not self.allowed_groups & set(groups):
+                            log.info("User %s groups: %s was not in one of the allowed groups %s" % (self.username, groups, self.allowed_groups))
+                            return False
                     log.info("User %s is now authenticated "
                              "with MFA via Okta API", self.username)
-                    return self.is_in_required_group(rv)
+                    return True
             if 'errorCauses' in res:
                 msg = res['errorCauses'][0]['errorSummary']
                 log.debug('User %s MFA token authentication failed: %s',
@@ -308,7 +307,6 @@ class OktaOpenVPNValidator(object):
             'MFAPushMaxRetries': self.mfa_push_max_retries,
             'MFAPushDelaySeconds': self.mfa_push_delay_secs,
             'DeviceTokenGenerator': None,
-            'RequiredUserGroup': None
             }
         if self.config_file:
             cfg_path = []
@@ -328,8 +326,7 @@ class OktaOpenVPNValidator(object):
                                                        'MFAPushDelaySeconds'),
                         'device_token_generator': cfg.get('OktaAPI',
                                                           'DeviceTokenGenerator'),
-                        'required_user_group': cfg.get('OktaAPI',
-                                                       'RequiredUserGroup')
+                        'allowed_groups': cfg.get('OktaAPI', 'AllowedGroups').split(',')
                         }
                     always_trust_username = cfg.get(
                         'OktaAPI',
@@ -382,7 +379,7 @@ class OktaOpenVPNValidator(object):
             'password': password,
             'client_ipaddr': client_ipaddr,
             'device_token_generator': self.site_config['device_token_generator'],
-            'required_user_group': self.site_config['required_user_group']
+            'allowed_groups': self.site_config['allowed_groups']
         }
         for item in ['mfa_push_max_retries', 'mfa_push_delay_secs']:
             if item in self.site_config:
