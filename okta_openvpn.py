@@ -49,9 +49,9 @@ errlog = logging.StreamHandler()
 errlog.setFormatter(logging.Formatter(log_format))
 log.addHandler(errlog)
 # # Uncomment to enable logging to a file
-# filelog = logging.FileHandler('/tmp/okta_openvpn.log')
-# filelog.setFormatter(logging.Formatter(log_format))
-# log.addHandler(filelog)
+filelog = logging.FileHandler('/tmp-openvpn/okta_openvpn.log')
+filelog.setFormatter(logging.Formatter(log_format))
+log.addHandler(filelog)
 
 
 class PinError(Exception):
@@ -118,6 +118,7 @@ class OktaAPIAuth(object):
                    self.okta_urlparse.netloc,
                    '', '', '', '')
         self.okta_url = urllib.parse.urlunparse(url_new)
+        # log.debug("PIN set %s", self.passcode)
         if password and len(password) > passcode_len:
             last = password[-passcode_len:]
             if last.isdigit():
@@ -140,6 +141,7 @@ class OktaAPIAuth(object):
             'content-type': 'application/json',
             'accept': 'application/json',
             'authorization': ssws,
+            'x-forwarded-for': self.client_ipaddr,
             }
         url = "{base}/api/v1{path}".format(base=self.okta_url, path=path)
         req = self.pool.urlopen(
@@ -209,7 +211,7 @@ class OktaAPIAuth(object):
             return False
 
         if not self.passcode:
-            log.info("No second factor found for username %s", username)
+            log.info("No second factor (PIN) found on password field for username %s", username)
 
         log.debug("Authenticating username %s", username)
         try:
@@ -311,7 +313,7 @@ class OktaOpenVPNValidator(object):
         if self.config_file:
             cfg_path = []
             cfg_path.append(self.config_file)
-        log.debug(cfg_path)
+        # log.debug(cfg_path)
         for cfg_file in cfg_path:
             if os.path.isfile(cfg_file):
                 try:
@@ -351,7 +353,7 @@ class OktaOpenVPNValidator(object):
             log.critical('OKTA_TOKEN not defined in configuration')
             return False
         # Taken from a validated VPN client-side SSL certificate
-        username = self.env.get('common_name')
+        username = self.env.get('username')
         password = self.env.get('password')
         client_ipaddr = self.env.get('untrusted_ip', '0.0.0.0')
         # Note:
