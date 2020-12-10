@@ -8,6 +8,9 @@ This is a plugin for OpenVPN (Community Edition) that authenticates users direct
 
     Note: This plugin does not work with OpenVPN Access Server (OpenVPN-AS)
 
+# Changes from other forks
+* Python 3 support  
+* uses username on login instead of CN from certificate
 
 # Requirements
 
