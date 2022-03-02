@@ -28,7 +28,7 @@ import urllib3
 
 from okta_pinset import okta_pinset
 
-version = "0.11.0"
+version = "0.11.1"
 # OktaOpenVPN/0.10.0 (Darwin 12.4.0) CPython/2.7.5
 user_agent = ("OktaOpenVPN/{version} "
               "({system} {system_version}) "
