@@ -304,7 +304,7 @@ class OktaOpenVPNValidator(object):
         cfg_path = cfg_path_defaults
         parser_defaults = {
             'AllowUntrustedUsers': str(self.always_trust_username),
-            'UsernameSuffix': self.username_suffix,
+            'UsernameSuffix': str(self.username_suffix),
             'MFAPushMaxRetries': self.mfa_push_max_retries,
             'MFAPushDelaySeconds': self.mfa_push_delay_secs,
             'DeviceTokenGenerator': str(self.device_token_generator)
