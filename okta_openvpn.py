@@ -294,6 +294,7 @@ class OktaOpenVPNValidator(object):
         # By default, we retry for 2 minutes:
         self.mfa_push_max_retries = "20"
         self.mfa_push_delay_secs = "3"
+        self.device_token_generator = None
 
     def read_configuration_file(self):
         cfg_path_defaults = [
@@ -302,11 +303,11 @@ class OktaOpenVPNValidator(object):
             'okta_openvpn.ini']
         cfg_path = cfg_path_defaults
         parser_defaults = {
-            'AllowUntrustedUsers': self.always_trust_username,
+            'AllowUntrustedUsers': str(self.always_trust_username),
             'UsernameSuffix': self.username_suffix,
             'MFAPushMaxRetries': self.mfa_push_max_retries,
             'MFAPushDelaySeconds': self.mfa_push_delay_secs,
-            'DeviceTokenGenerator': None,
+            'DeviceTokenGenerator': str(self.device_token_generator)
             }
         if self.config_file:
             cfg_path = []
