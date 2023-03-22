@@ -109,6 +109,7 @@ class OktaAPIAuth(object):
         self.password = password
         self.client_ipaddr = client_ipaddr
         self.passcode = None
+        self.auth_control_file = "/etc/openvpn/tmp"
         self.okta_urlparse = urllib.parse.urlparse(okta_url)
         self.mfa_push_delay_secs = mfa_push_delay_secs
         self.mfa_push_max_retries = mfa_push_max_retries
@@ -368,7 +369,8 @@ class OktaOpenVPNValidator(object):
             self.username_trusted = self.always_trust_username
         if self.username_suffix and '@' not in username:
             username = username + '@' + self.username_suffix
-        self.control_file = self.env.get('auth_control_file')
+        #self.control_file = self.env.get('auth_control_file')
+        self.control_file = self.get('auth_control_file')
         if self.control_file is None:
             log.info(("No control file found, "
                       "if using a deferred plugin "
