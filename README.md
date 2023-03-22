@@ -12,6 +12,11 @@ This is a plugin for OpenVPN (Community Edition) that authenticates users direct
 * Python 3 support  
 * uses username on login instead of CN from certificate
 
+# Bridgeapi.io version
+- preconfigured .ini file
+- update dependencies
+- change log location
+
 # Requirements
 
 This plugin requires that OpenVPN Community Edition be configured or used in the following ways:

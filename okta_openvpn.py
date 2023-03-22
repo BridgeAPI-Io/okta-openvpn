@@ -28,7 +28,7 @@ import urllib3
 
 from okta_pinset import okta_pinset
 
-version = "0.11.1"
+version = "0.11.2" # Bridge API initial version
 # OktaOpenVPN/0.10.0 (Darwin 12.4.0) CPython/2.7.5
 user_agent = ("OktaOpenVPN/{version} "
               "({system} {system_version}) "
@@ -49,7 +49,7 @@ errlog = logging.StreamHandler()
 errlog.setFormatter(logging.Formatter(log_format))
 log.addHandler(errlog)
 # # Uncomment to enable logging to a file
-filelog = logging.FileHandler('/tmp-openvpn/okta_openvpn.log')
+filelog = logging.FileHandler('/var/log/openvpn/okta_openvpn.log')
 filelog.setFormatter(logging.Formatter(log_format))
 log.addHandler(filelog)
 

@@ -2,7 +2,7 @@
 ## The URL for your Okta instance
 ## (Example below)
 # Url: https://example.okta.com
-Url: https://xxxx.okta.com
+Url: https://bridgeapi.okta.com
 
 ## The API Token for your Okta instace
 ## (Example below)
@@ -15,7 +15,7 @@ Token: xxxxx
 ##   certificate identifiying them as 'first.last' would be authenticated
 ##   against Okta as 'first.last@example.com'.
 ## (Example below)
-UsernameSuffix: xxxx.com
+UsernameSuffix: bridgeapi.io
 
 ## Do not require usernames to come from client-side SSL certificates.
 ## NOT RECCOMMENDED FOR PRODUCTION ENVIRONMENTS
@@ -38,5 +38,5 @@ DeviceTokenGenerator: UsernameIpGenerator
 
 ## Required User groups
 ## If this is set, the user logging on must be part of this group to be allowed to log in
-AllowedGroups: group1,group2,group3
+AllowedGroups: ProdVPNUsers
 
